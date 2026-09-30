@@ -21,7 +21,9 @@ def get_token() -> str:
         return token
     # On Connect, the service account integration attached to this content
     # hands back an Azure access token. Connect injects the session token.
-    credentials = Client().oauth.get_content_credentials()
+    # Keep the client in a variable: posit-sdk only holds a weak reference to it.
+    client = Client()
+    credentials = client.oauth.get_content_credentials()
     if not credentials or not credentials.get("access_token"):
         raise RuntimeError("No token returned; is mai-posit attached to this content?")
     return credentials["access_token"]
