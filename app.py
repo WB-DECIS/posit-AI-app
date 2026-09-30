@@ -1,10 +1,13 @@
 """Small chat app for Posit Connect, backed by mAI Factory through the `mai-posit` integration."""
 
+import base64
+import json
 import os
+from datetime import datetime, timezone
 
 import httpx
 from openai import AsyncOpenAI
-from shiny import App, ui
+from shiny import App, reactive, render, ui
 
 BASE_URL = os.environ.get(
     "MAI_BASE_URL", "https://azapimdev.worldbank.org/maifactory/openai"
@@ -65,6 +68,21 @@ async def get_token() -> str:
     return access_token
 
 
+def describe_token(token: str) -> str:
+    # Show who the token is for and when it expires, never the token itself.
+    try:
+        payload = token.split(".")[1]
+        claims = json.loads(base64.urlsafe_b64decode(payload + "=" * (-len(payload) % 4)))
+    except Exception:
+        return "Token received (could not read its details)."
+    expires = datetime.fromtimestamp(claims.get("exp", 0), timezone.utc)
+    return (
+        f"Token received. Audience: {claims.get('aud')} | "
+        f"App: {claims.get('appid') or claims.get('azp')} | "
+        f"Expires: {expires:%Y-%m-%d %H:%M} UTC"
+    )
+
+
 async def make_client() -> AsyncOpenAI:
     # The gateway takes the Azure token as a plain bearer token.
     return AsyncOpenAI(
@@ -76,6 +94,12 @@ async def make_client() -> AsyncOpenAI:
 
 app_ui = ui.page_fillable(
     ui.panel_title("mAI Chat"),
+    ui.layout_columns(
+        ui.input_action_button("check_token", "Check token exchange"),
+        ui.output_text("token_status"),
+        col_widths=(3, 9),
+        fill=False,
+    ),
     ui.chat_ui("chat", placeholder="Ask mAI something..."),
     fillable_mobile=True,
 )
@@ -84,6 +108,14 @@ app_ui = ui.page_fillable(
 def server(input, output, session):
     chat = ui.Chat(id="chat")
     history = [{"role": "system", "content": SYSTEM_PROMPT}]
+
+    @render.text
+    @reactive.event(input.check_token)
+    async def token_status():
+        try:
+            return describe_token(await get_token())
+        except Exception as e:
+            return f"Token exchange failed: {type(e).__name__}: {e}"
 
     @chat.on_user_submit
     async def _(user_input: str):
