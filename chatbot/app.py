@@ -113,9 +113,19 @@ def server(input, output, session):
     @reactive.event(input.check_token)
     async def token_status():
         try:
-            return describe_token(await get_token())
+            status = describe_token(await get_token())
         except Exception as e:
             return f"Token exchange failed: {type(e).__name__}: {e}"
+        # Show the settings in use and what the gateway offers, to diagnose
+        # DeploymentNotFound errors.
+        status += f"\nUsing model: {MODEL} | URL: {BASE_URL} | Team: {TEAM_NAME}"
+        try:
+            client = await make_client()
+            models = [m.id async for m in client.models.list()]
+            status += f"\nGateway models: {', '.join(models) or '(none listed)'}"
+        except Exception as e:
+            status += f"\nCould not list gateway models: {type(e).__name__}: {e}"
+        return status
 
     @chat.on_user_submit
     async def _(user_input: str):
