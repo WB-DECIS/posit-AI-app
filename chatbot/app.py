@@ -12,7 +12,7 @@ from shiny import App, reactive, render, ui
 BASE_URL = os.environ.get(
     "MAI_BASE_URL", "https://azapimdev.worldbank.org/maifactory/openai"
 )
-MODEL = os.environ.get("MAI_MODEL", "gpt-4o")
+MODEL = os.environ.get("MAI_MODEL", "gpt-5")
 TEAM_NAME = os.environ.get("MAI_TEAM_NAME", "posit-ai")
 SYSTEM_PROMPT = os.environ.get("MAI_SYSTEM_PROMPT", "You are a helpful assistant.")
 
