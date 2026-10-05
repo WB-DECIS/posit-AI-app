@@ -11,7 +11,7 @@ from shiny import App, reactive, render, ui
 
 BASE_URL = os.environ.get(
     "MAI_BASE_URL", "https://azapimdev.worldbank.org/maifactory/openai"
-)
+).rstrip("/") + "/"
 MODEL = os.environ.get("MAI_MODEL", "gpt-5")
 TEAM_NAME = os.environ.get("MAI_TEAM_NAME", "posit-ai")
 SYSTEM_PROMPT = os.environ.get("MAI_SYSTEM_PROMPT", "You are a helpful assistant.")
@@ -107,7 +107,7 @@ app_ui = ui.page_fillable(
 
 def server(input, output, session):
     chat = ui.Chat(id="chat")
-    history = [{"role": "system", "content": SYSTEM_PROMPT}]
+    history = []
 
     @render.text
     @reactive.event(input.check_token)
@@ -116,26 +116,24 @@ def server(input, output, session):
             status = describe_token(await get_token())
         except Exception as e:
             return f"Token exchange failed: {type(e).__name__}: {e}"
-        # Show the settings in use and what the gateway offers, to diagnose
-        # DeploymentNotFound errors.
         status += f"\nUsing model: {MODEL} | URL: {BASE_URL} | Team: {TEAM_NAME}"
-        try:
-            client = await make_client()
-            models = [m.id async for m in client.models.list()]
-            status += f"\nGateway models: {', '.join(models) or '(none listed)'}"
-        except Exception as e:
-            status += f"\nCould not list gateway models: {type(e).__name__}: {e}"
+        status += "\nToken check succeeded. Model access has not been tested."
         return status
 
     @chat.on_user_submit
     async def _(user_input: str):
         history.append({"role": "user", "content": user_input})
         try:
-            client = await make_client()
-            resp = await client.chat.completions.create(
-                model=MODEL, messages=history
+            async with await make_client() as client:
+                resp = await client.responses.create(
+                    model=MODEL, instructions=SYSTEM_PROMPT, input=history
+                )
+            answer = resp.output_text or "\n".join(
+                content.text
+                for item in resp.output
+                for content in getattr(item, "content", [])
+                if getattr(content, "type", None) == "output_text"
             )
-            answer = resp.choices[0].message.content or ""
         except Exception as e:
             history.pop()
             await chat.append_message(
