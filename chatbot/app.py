@@ -10,7 +10,7 @@ from openai import AsyncOpenAI
 from shiny import App, reactive, render, ui
 
 BASE_URL = os.environ.get(
-    "MAI_BASE_URL", "https://azapimdev.worldbank.org/maifactory/openai"
+    "MAI_BASE_URL", "https://azapim.worldbank.org/maifactory/openai"
 ).rstrip("/") + "/"
 MODEL = os.environ.get("MAI_MODEL", "gpt-6-luna")
 TEAM_NAME = os.environ.get("MAI_TEAM_NAME", "posit-ai")
