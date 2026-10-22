@@ -9,9 +9,10 @@ import httpx
 from openai import AsyncOpenAI
 from shiny import App, reactive, render, ui
 
-BASE_URL = os.environ.get(
-    "MAI_BASE_URL", "https://azapim.worldbank.org/maifactory/openai"
-).rstrip("/") + "/"
+# Set MAI_BASE_URL in the content's Vars panel on Connect.
+BASE_URL = os.environ.get("MAI_BASE_URL", "").strip().rstrip("/")
+if BASE_URL:
+    BASE_URL += "/"
 MODEL = os.environ.get("MAI_MODEL", "gpt-6-luna")
 TEAM_NAME = os.environ.get("MAI_TEAM_NAME", "posit-ai")
 SYSTEM_PROMPT = os.environ.get("MAI_SYSTEM_PROMPT", "You are a helpful assistant.")
@@ -84,6 +85,8 @@ def describe_token(token: str) -> str:
 
 
 async def make_client() -> AsyncOpenAI:
+    if not BASE_URL:
+        raise RuntimeError("MAI_BASE_URL is not set; add it in the content's Vars on Connect")
     # The gateway takes the Azure token as a plain bearer token.
     return AsyncOpenAI(
         base_url=BASE_URL,
@@ -116,7 +119,7 @@ def server(input, output, session):
             status = describe_token(await get_token())
         except Exception as e:
             return f"Token exchange failed: {type(e).__name__}: {e}"
-        status += f"\nUsing model: {MODEL} | URL: {BASE_URL} | Team: {TEAM_NAME}"
+        status += f"\nUsing model: {MODEL} | URL: {BASE_URL or 'MAI_BASE_URL not set'} | Team: {TEAM_NAME}"
         status += "\nToken check succeeded. Model access has not been tested."
         return status
 
